@@ -23,36 +23,6 @@ public class Application {
 			System.out.println("Created users with senderId = "+senderId +
 					" | receiverId= " + receiverId + " | transferId = " + transferId);
 
-
-//			try (PreparedStatement stmt =
-//						 connection.prepareStatement("update users set first_name=concat(first_name, first_name) " +
-//								 "where id>?")) {
-//
-//				stmt.setInt(1, 5);
-//				int updatedRows = stmt.executeUpdate();
-//				System.out.println("updatedRows = " + updatedRows);
-//			}
-//
-//			try (PreparedStatement stmt =
-//						 connection.prepareStatement("select * from users")) {
-//
-//				stmt.setFetchSize(50);
-//
-//				ResultSet resultSet = stmt.executeQuery();
-//				while(resultSet.next()){
-//					int id = resultSet.getInt("id");
-//					String first_name = resultSet.getString("first_name");
-//					String last_name = resultSet.getString("last_name");
-//					LocalDateTime registration_date =
-//							resultSet.getObject("registration_date", LocalDateTime.class);
-//
-//					System.out.println("Found user: "+ id + " | " +
-//							first_name + " | " + last_name + " | " + registration_date);
-//				}
-//
-//			}
-
-			System.out.println("Conexión es valida {0} = " + connection.isValid(0));
 		}
 
 	}
@@ -62,14 +32,18 @@ public class Application {
 				"update users set balance= (balance - ?) where id = ?")) {
 			stmt.setInt(1, amount);
 			stmt.setInt(2, senderId);
+			// implicit: open transaction
 			stmt.executeUpdate();
+			// implicit: commit/close transaction
 		}
 
 		try (PreparedStatement stmt = connection.prepareStatement(
 				"update users set balance= (balance + ?) where id = ?")) {
 			stmt.setInt(1, amount);
 			stmt.setInt(2, receiverId);
+			// implicit: open transaction
 			stmt.executeUpdate();
+			// implicit: commit/close transaction
 		}
 
 		try (PreparedStatement stmt = connection.prepareStatement(
@@ -78,8 +52,9 @@ public class Application {
 			stmt.setInt(1, senderId);
 			stmt.setInt(2, receiverId);
 			stmt.setInt(3, amount);
+			// implicit: open transaction
 			stmt.executeUpdate();
-
+			// implicit: commit/close transaction
 			ResultSet rs = stmt.getGeneratedKeys();
 			rs.next();
 			return rs.getInt(1);
