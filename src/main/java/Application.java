@@ -2,6 +2,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.sql.Statement;
 import java.time.LocalDateTime;
 
@@ -22,9 +23,12 @@ public class Application {
 
 			int senderId = createUser(connection);
 			int receiverId = createUser(connection);
+
+			Savepoint savepoint = connection.setSavepoint();
+
 			int transferId = sendMoney(connection, senderId, receiverId, 50);
-			System.out.println("Created users with senderId = "+senderId +
-					" | receiverId= " + receiverId + " | transferId = " + transferId);
+
+			if (transferId<0) connection.rollback(savepoint);
 
 			connection.commit();
 		}catch (SQLException e){
