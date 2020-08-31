@@ -13,48 +13,64 @@ import net.ttddyy.dsproxy.support.ProxyDataSourceBuilder;
 
 public class Application {
 
+	private static DataSource ds = createDataSource();
+
 	public static void main(String[] args) throws SQLException {
 		// transaction isolation levels
 
-		DataSource ds = createDataSource();
+
 		Connection connection = ds.getConnection();
-		// database locking
+		// optimistic locking
 
 		int senderId = createUser(connection);  // default balance = 100
-		int transactionAmount = 50;
+		int senderVersion = getVersion(senderId); // default id = 1;
+		int receiverId = createUser(connection); // default balance = 100
+
+		int amount = 99;
 
 
 		try (connection) {
 			connection.setAutoCommit(false);
 
 			try (PreparedStatement stmt = connection.prepareStatement(
-					"update users set balance = (balance - ?) where id = ?")) {
-				stmt.setInt(1, transactionAmount);
+					"update users set balance = (balance - ?)," +
+							"version = (version + 1) " +
+							"where id = ? and " +
+							"version = ?")) {
+
+				stmt.setInt(1, amount);
 				stmt.setInt(2, senderId);
-				stmt.executeUpdate();
-			}
-
-			Connection connection2 = ds.getConnection();
-			try (connection2) {
-				connection2.setAutoCommit(false);
-
-				try (PreparedStatement stmt = connection2.prepareStatement(
-						"update users set balance = (balance - ?) where id = ?")) {
-					stmt.setInt(1, transactionAmount);
-					stmt.setInt(2, senderId);
-					stmt.executeUpdate();
-				}
-
-			} catch (SQLException e) {
-				e.printStackTrace();
-				connection2.rollback();
+				stmt.setInt(3, senderVersion);
+				final int rowsUpdated = stmt.executeUpdate();
+				if (rowsUpdated == 0) throw new RuntimeException("Optimistic " +
+						"Locking Exception");
+				System.out.println("rowsUpdated = " + rowsUpdated);
 			}
 
 			connection.commit();
 		} catch (SQLException e) {
-			e.printStackTrace();
 			connection.rollback();
 		}
+	}
+
+	private static Integer getVersion(int userId) throws SQLException {
+		Connection connection = ds.getConnection();
+		Integer balance = null;
+
+		try (connection; PreparedStatement stmt = connection.prepareStatement(
+				"select version" +
+						" " +
+						"from users where id = ?")) {
+
+			stmt.setInt(1, userId);
+
+			ResultSet resultSet = stmt.executeQuery();
+			while (resultSet.next()) {
+				balance = resultSet.getInt("version");
+				break;
+			}
+		}
+		return balance;
 	}
 
 	private static int createUser(Connection connection) throws SQLException {
@@ -98,7 +114,7 @@ public class Application {
 
 		//docker run -p 3306:3306 --name mysql8 -e MYSQL_ROOT_PASSWORD=joedayz -e MYSQL_DATABASE=mydb -d mysql:8
 		HikariDataSource hikariDs = new HikariDataSource();
-		hikariDs.setJdbcUrl("jdbc:h2:~/mydatabase");
+		hikariDs.setJdbcUrl("jdbc:h2:~/mydatabase;INIT=RUNSCRIPT FROM 'classpath:schema.sql'");
 		hikariDs.setUsername("sa");
 		hikariDs.setPassword("password");
 

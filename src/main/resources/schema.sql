@@ -15,4 +15,6 @@ create table if not exists transfers (
     amount int not null,
     foreign key (sender_id) references users(id),
     foreign key (receiver_id) references users(id)
-)
+);
+
+alter table users add column IF NOT EXISTS version int default 1;
