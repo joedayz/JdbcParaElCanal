@@ -42,7 +42,7 @@ public class Application {
 			Connection connection3 = ds.getConnection();
 			try (connection3) {
 				connection3.setAutoCommit(false);
-				connection3.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+				connection3.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
 
 
 				Integer connection3BalanceBefore = getBalance(connection3, senderId);
@@ -58,12 +58,14 @@ public class Application {
 				// TODO update into receiver's balance
 				// TODO insert into transactions table
 
+				connection2.commit();
+
 				Integer connection3BalanceAfter = getBalance(connection3, senderId);
 				System.out.println("connection3BalanceAfter = "
 						+ connection3BalanceAfter);
 				connection3.commit();
 			}
-			connection2.commit();
+
 
 		} catch (SQLException e) {
 			e.printStackTrace();
