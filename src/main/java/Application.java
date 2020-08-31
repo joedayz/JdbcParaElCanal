@@ -15,8 +15,8 @@ public class Application {
 
 	public static void main(String[] args) throws SQLException {
 		DataSource ds = createDataSource();
-
-		try(Connection connection = ds.getConnection()) {
+		Connection connection = ds.getConnection();
+		try(connection) {
 
 			connection.setAutoCommit(false);
 
@@ -28,7 +28,7 @@ public class Application {
 
 			connection.commit();
 		}catch (SQLException e){
-			//TODO rollback
+			connection.rollback();
 		}
 
 	}
