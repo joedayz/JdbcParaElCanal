@@ -17,59 +17,43 @@ public class Application {
 		// transaction isolation levels
 
 		DataSource ds = createDataSource();
+		Connection connection = ds.getConnection();
+		// database locking
 
-		int senderId = -1;
-		int receiverId = -1;
-
-		Connection connection1 = ds.getConnection();
-		try (connection1) {
-			connection1.setAutoCommit(false);
-
-			senderId = createUser(connection1);
-			receiverId = createUser(connection1);
-
-			connection1.commit();
-		} catch (SQLException e) {
-			connection1.rollback();
-		}
+		int senderId = createUser(connection);  // default balance = 100
+		int transactionAmount = 50;
 
 
-		Connection connection2 = ds.getConnection();
+		try (connection) {
+			connection.setAutoCommit(false);
 
-		try (connection2) {
-			connection2.setAutoCommit(false);
+			try (PreparedStatement stmt = connection.prepareStatement(
+					"update users set balance = (balance - ?) where id = ?")) {
+				stmt.setInt(1, transactionAmount);
+				stmt.setInt(2, senderId);
+				stmt.executeUpdate();
+			}
 
-			Connection connection3 = ds.getConnection();
-			try (connection3) {
-				connection3.setAutoCommit(false);
-				connection3.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
-
-
-				Integer connection3BalanceBefore = getBalance(connection3, senderId);
-				System.out.println("connection3BalanceBefore = "
-						+ connection3BalanceBefore);
+			Connection connection2 = ds.getConnection();
+			try (connection2) {
+				connection2.setAutoCommit(false);
 
 				try (PreparedStatement stmt = connection2.prepareStatement(
 						"update users set balance = (balance - ?) where id = ?")) {
-					stmt.setInt(1, 99);
+					stmt.setInt(1, transactionAmount);
 					stmt.setInt(2, senderId);
 					stmt.executeUpdate();
 				}
-				// TODO update into receiver's balance
-				// TODO insert into transactions table
 
-				connection2.commit();
-
-				Integer connection3BalanceAfter = getBalance(connection3, senderId);
-				System.out.println("connection3BalanceAfter = "
-						+ connection3BalanceAfter);
-				connection3.commit();
+			} catch (SQLException e) {
+				e.printStackTrace();
+				connection2.rollback();
 			}
 
-
+			connection.commit();
 		} catch (SQLException e) {
 			e.printStackTrace();
-			connection2.rollback();
+			connection.rollback();
 		}
 	}
 
