@@ -17,12 +17,18 @@ public class Application {
 		DataSource ds = createDataSource();
 
 		try(Connection connection = ds.getConnection()) {
+
+			connection.setAutoCommit(false);
+
 			int senderId = createUser(connection);
 			int receiverId = createUser(connection);
 			int transferId = sendMoney(connection, senderId, receiverId, 50);
 			System.out.println("Created users with senderId = "+senderId +
 					" | receiverId= " + receiverId + " | transferId = " + transferId);
 
+			connection.commit();
+		}catch (SQLException e){
+			//TODO rollback
 		}
 
 	}
