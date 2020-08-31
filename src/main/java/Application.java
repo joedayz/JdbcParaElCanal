@@ -42,6 +42,8 @@ public class Application {
 			Connection connection3 = ds.getConnection();
 			try (connection3) {
 				connection3.setAutoCommit(false);
+				connection3.setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
+
 
 				Integer connection3BalanceBefore = getBalance(connection3, senderId);
 				System.out.println("connection3BalanceBefore = "
