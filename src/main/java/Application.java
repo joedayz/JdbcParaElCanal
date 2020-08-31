@@ -16,41 +16,47 @@ public class Application {
 	private static DataSource ds = createDataSource();
 
 	public static void main(String[] args) throws SQLException {
-		// transaction isolation levels
 
+		// pessimistic locking
 
-		Connection connection = ds.getConnection();
-		// optimistic locking
-
-		int senderId = createUser(connection);  // default balance = 100
+		int senderId = createUser();  // default balance = 100
 		int senderVersion = getVersion(senderId); // default id = 1;
-		int receiverId = createUser(connection); // default balance = 100
+		int receiverId = createUser(); // default balance = 100
 
 		int amount = 99;
 
-
+		Connection connection = ds.getConnection();
 		try (connection) {
 			connection.setAutoCommit(false);
 
-			try (PreparedStatement stmt = connection.prepareStatement(
-					"update users set balance = (balance - ?)," +
-							"version = (version + 1) " +
-							"where id = ? and " +
-							"version = ?")) {
+			// for update
+			connection.createStatement().execute(
+					"select * from users for update");
 
-				stmt.setInt(1, amount);
-				stmt.setInt(2, senderId);
-				stmt.setInt(3, senderVersion);
-				final int rowsUpdated = stmt.executeUpdate();
-				if (rowsUpdated == 0) throw new RuntimeException("Optimistic " +
-						"Locking Exception");
-				System.out.println("rowsUpdated = " + rowsUpdated);
+			Connection connection2 = ds.getConnection();
+			try (connection2) {
+				connection2.setAutoCommit(false);
+
+				try (PreparedStatement stmt = connection2.prepareStatement(
+						"update users set balance = (balance - ?) where id = ?")) {
+					stmt.setInt(1, amount);
+					stmt.setInt(2, senderId);
+					stmt.executeUpdate();
+				}
+				connection2.commit();
+			} catch (SQLException e) {
+				e.printStackTrace();
+				connection2.rollback();
 			}
 
 			connection.commit();
 		} catch (SQLException e) {
 			connection.rollback();
 		}
+
+
+		int senderBalance = getBalance(senderId);
+		System.out.println("senderBalance = " + senderBalance);
 	}
 
 	private static Integer getVersion(int userId) throws SQLException {
@@ -73,7 +79,9 @@ public class Application {
 		return balance;
 	}
 
-	private static int createUser(Connection connection) throws SQLException {
+	private static int createUser() throws SQLException {
+		Connection connection = ds.getConnection();
+
 		try (PreparedStatement stmt = connection.prepareStatement("insert into " +
 						"users (first_name, last_name, registration_date) values " +
 						"(?,?,?)"
@@ -90,11 +98,13 @@ public class Application {
 	}
 
 
-	private static Integer getBalance(Connection connection, int userId) throws SQLException {
+	private static Integer getBalance(int userId) throws SQLException {
+		Connection connection = ds.getConnection();
 		Integer balance = null;
 
-		try (PreparedStatement stmt = connection.prepareStatement(
-				"select balance " +
+		try (connection; PreparedStatement stmt = connection.prepareStatement(
+				"select balance" +
+						" " +
 						"from users where id = ?")) {
 
 			stmt.setInt(1, userId);
@@ -109,12 +119,11 @@ public class Application {
 	}
 
 
-
 	public static DataSource createDataSource(){
 
 		//docker run -p 3306:3306 --name mysql8 -e MYSQL_ROOT_PASSWORD=joedayz -e MYSQL_DATABASE=mydb -d mysql:8
 		HikariDataSource hikariDs = new HikariDataSource();
-		hikariDs.setJdbcUrl("jdbc:h2:~/mydatabase;INIT=RUNSCRIPT FROM 'classpath:schema.sql'");
+		hikariDs.setJdbcUrl("jdbc:h2:~/mydatabase");
 		hikariDs.setUsername("sa");
 		hikariDs.setPassword("password");
 
