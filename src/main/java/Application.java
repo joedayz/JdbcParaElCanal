@@ -15,6 +15,16 @@ public class Application {
 
 	public static void main(String[] args) throws SQLException {
 		// transaction isolation levels
+		/*
+				Read uncommitted
+
+				Read committed
+
+				Repeatable read
+
+				Serializable
+
+		 */
 
 		DataSource ds = createDataSource();
 
